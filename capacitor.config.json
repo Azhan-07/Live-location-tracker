@@ -1,0 +1,9 @@
+{
+  "appId": "com.azhan.livelocation",
+  "appName": "Live Location Tracker",
+  "webDir": "www",
+  "server": {
+    "url": "https://sys-demonstrated-alter-concerns.trycloudflare.com",
+    "cleartext": false
+  }
+}

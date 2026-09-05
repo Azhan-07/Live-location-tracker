@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GHOSTNET // AUTH</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&family=Orbitron:wght@500;700;900&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #02060c;
+            --panel: rgba(6, 16, 26, 0.9);
+            --line: rgba(0, 255, 102, 0.25);
+            --green: #00ff66;
+            --dim-green: #0a8f46;
+            --cyan: #00e5ff;
+            --red: #ff2a4d;
+            --amber: #ffb000;
+            --text: #c9ffe0;
+            --muted: #4a7a63;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Share Tech Mono', 'Courier New', monospace;
+            padding: 20px;
+            position: relative;
+        }
+
+        #matrix {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            opacity: 0.5;
+        }
+
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            z-index: 2;
+            pointer-events: none;
+            background: repeating-linear-gradient(0deg,
+                    rgba(0, 0, 0, 0.22) 0px,
+                    rgba(0, 0, 0, 0.22) 1px,
+                    transparent 1px,
+                    transparent 3px);
+        }
+
+        .vignette {
+            position: fixed;
+            inset: 0;
+            z-index: 2;
+            pointer-events: none;
+            background: radial-gradient(ellipse at center,
+                    transparent 50%,
+                    rgba(0, 0, 0, 0.6) 100%);
+        }
+
+        .auth-wrap {
+            position: relative;
+            z-index: 3;
+            width: 100%;
+            max-width: 460px;
+        }
+
+        .term-window {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            box-shadow: 0 0 30px rgba(0, 255, 102, 0.15), inset 0 0 30px rgba(0, 255, 102, 0.03);
+        }
+
+        .term-titlebar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: rgba(0, 255, 102, 0.06);
+            border-bottom: 1px solid var(--line);
+            font-size: 12px;
+            color: var(--muted);
+            letter-spacing: 1px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .dot.red {
+            background: var(--red);
+            box-shadow: 0 0 8px var(--red);
+        }
+
+        .dot.amber {
+            background: var(--amber);
+            box-shadow: 0 0 8px var(--amber);
+        }
+
+        .dot.green {
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+        }
+
+        .term-title {
+            margin-left: 8px;
+        }
+
+        .term-body {
+            padding: 26px 28px 30px;
+        }
+
+        .ascii-logo {
+            font-family: 'VT323', monospace;
+            font-size: 21px;
+            line-height: 1.05;
+            color: var(--green);
+            text-shadow: 0 0 14px rgba(0, 255, 102, 0.7);
+            white-space: pre;
+            margin-bottom: 18px;
+        }
+
+        .line {
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.9;
+        }
+
+        .line .ok {
+            color: var(--green);
+        }
+
+        .line .warn {
+            color: var(--amber);
+        }
+
+        .auth-title {
+            margin: 16px 0 18px;
+            padding: 10px 12px;
+            border-left: 3px solid var(--red);
+            background: rgba(255, 42, 77, 0.07);
+            color: var(--red);
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 15px;
+            letter-spacing: 3px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .field-label {
+            font-size: 13px;
+            color: var(--muted);
+            letter-spacing: 1px;
+        }
+
+        .field-label .caret {
+            color: var(--green);
+            animation: blink 1s steps(2, start) infinite;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            background: rgba(0, 255, 102, 0.04);
+            border: 1px solid var(--line);
+            padding: 12px 14px;
+            color: var(--green);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 16px;
+            letter-spacing: 1px;
+            outline: none;
+            transition: all 0.15s ease;
+        }
+
+        input::placeholder {
+            color: rgba(74, 122, 99, 0.6);
+        }
+
+        input:focus {
+            border-color: var(--green);
+            box-shadow: 0 0 14px rgba(0, 255, 102, 0.25);
+            background: rgba(0, 255, 102, 0.08);
+        }
+
+        .btn-auth {
+            margin-top: 6px;
+            padding: 13px;
+            background: transparent;
+            border: 1px solid var(--green);
+            color: var(--green);
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+        }
+
+        .btn-auth:hover {
+            background: var(--green);
+            color: #021408;
+            box-shadow: 0 0 22px rgba(0, 255, 102, 0.5);
+        }
+
+        .btn-auth:active {
+            transform: scale(0.98);
+        }
+
+        .sys-line {
+            margin-top: 20px;
+            padding-top: 14px;
+            border-top: 1px dashed rgba(0, 255, 102, 0.2);
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 6px rgba(255, 42, 77, 0.15);
+            }
+
+            50% {
+                box-shadow: 0 0 20px rgba(255, 42, 77, 0.4);
+            }
+        }
+
+        @media (max-width: 500px) {
+            .ascii-logo {
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="matrix"></canvas>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+
+    <div class="auth-wrap">
+        <div class="term-window">
+            <div class="term-titlebar">
+                <span class="dot red"></span>
+                <span class="dot amber"></span>
+                <span class="dot green"></span>
+                <span class="term-title">secure-session://authentication</span>
+            </div>
+            <div class="term-body">
+                <pre class="ascii-logo">
+   ____ ___  ____  _   _ _____ _____ _   _ _____
+  / ___/ _ \|  _ \| | | |_   _| ____| \ | |_   _|
+ | |  | | | | |_) | |_| | | | |  _| |  \| | | |
+ | |__| |_| |  _ &lt;|  _  | | | | |___| |\  | | |
+  \____\___/|_| \_\_| |_| |_| |_____|_| \_| |_|
+                </pre>
+
+                <p class="line"><span class="ok">[ OK ]</span> SECURE CHANNEL ESTABLISHED — AES-256</p>
+                <p class="line"><span class="ok">[ OK ]</span> HANDSHAKE VERIFIED</p>
+                <p class="line"><span class="warn">[ ! ]</span> CLEARANCE REQUIRED TO ENTER</p>
+
+                <div class="auth-title">AUTHENTICATION REQUIRED</div>
+
+                <form action="/login" method="post">
+                    <div>
+                        <label class="field-label" for="username">root@ghostnet ~ login: <span
+                                class="caret">▮</span></label>
+                        <input type="text" id="username" placeholder="username" autocomplete="username"
+                            autocapitalize="off" autocorrect="off" spellcheck="false" required name="username">
+                    </div>
+                    <div>
+                        <label class="field-label" for="password">password: <span class="caret">▮</span></label>
+                        <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"
+                            required name="password">
+                    </div>
+                    <button type="submit" class="btn-auth">[ AUTHENTICATE ]</button>
+                </form>
+
+                <p class="sys-line">&gt; access level: restricted &nbsp;|&nbsp; session: encrypted</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('matrix')
+        const ctx = canvas.getContext('2d')
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&*+=<>[]{}"
+        let w, h, cols, drops
+
+        function resize() {
+            w = canvas.width = window.innerWidth
+            h = canvas.height = window.innerHeight
+            cols = Math.floor(w / 16)
+            drops = Array.from({ length: cols }, () => Math.floor(Math.random() * -30))
+        }
+        resize()
+        window.addEventListener('resize', resize)
+
+        function draw() {
+            ctx.fillStyle = 'rgba(2, 6, 12, 0.08)'
+            ctx.fillRect(0, 0, w, h)
+            ctx.font = '16px monospace'
+            for (let i = 0; i < cols; i++) {
+                const ch = chars[Math.floor(Math.random() * chars.length)]
+                ctx.fillStyle = Math.random() > 0.975 ? '#aaffcc' : '#00cc55'
+                ctx.fillText(ch, i * 16, drops[i] * 16)
+                if (drops[i] * 16 > h && Math.random() > 0.975) drops[i] = 0
+                drops[i]++
+            }
+        }
+        setInterval(draw, 50)
+    </script>
+</body>
+
+</html>

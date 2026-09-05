@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Location</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 14px;
+            background: #1a1a1a;
+            color: #fff;
+            font-size: 14px;
+            z-index: 1000;
+        }
+
+        .topbar .left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .topbar .target {
+            color: #ccc;
+        }
+
+        .topbar .target b {
+            color: #4da6ff;
+        }
+
+        .topbar .status {
+            font-size: 13px;
+            color: #aaa;
+        }
+
+        .topbar a {
+            color: #4da6ff;
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        #map {
+            flex: 1;
+            width: 100%;
+            min-height: 0;
+        }
+
+        .coord-bar {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px 16px;
+            max-width: calc(100vw - 24px);
+            padding: 8px 14px;
+            background: rgba(26, 26, 26, 0.9);
+            color: #fff;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: monospace;
+        }
+
+        .coord-bar span {
+            color: #ccc;
+        }
+
+        .coord-bar b {
+            color: #4da6ff;
+            font-weight: normal;
+        }
+
+        .coord-bar .addr {
+            width: 100%;
+            max-width: 560px;
+            text-align: center;
+            color: #7ee787;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
+
+<body>
+    <header class="topbar">
+        <div class="left">
+            <span class="target">TARGET: <b id="display-id">—</b></span>
+            <span class="status" id="feed-state">ACQUIRING…</span>
+        </div>
+        <a href="/">← Back</a>
+    </header>
+
+    <div id="map"></div>
+
+    <div class="coord-bar">
+        <span>LAT: <b id="lat-read">--</b></span>
+        <span>LNG: <b id="lng-read">--</b></span>
+        <span class="addr" id="addr-read">ADDRESS: resolving…</span>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/socket.io@4.8.1/client-dist/socket.io.min.js"></script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        const displayId = document.querySelector("#display-id")
+        const feedState = document.querySelector("#feed-state")
+        const latRead = document.querySelector("#lat-read")
+        const lngRead = document.querySelector("#lng-read")
+        const addrRead = document.querySelector("#addr-read")
+        const id = new URLSearchParams(location.search).get("id")
+
+        let raw = "{{ data }}"
+        let latLng
+        try {
+            latLng = raw && raw !== "undefined" ? JSON.parse(raw) : null
+        } catch (e) {
+            latLng = null
+        }
+
+        if (!latLng) {
+            latLng = [0, 0]
+            feedState.innerText = "WAITING FOR LOCATION…"
+        }
+
+        const map = L.map('map').setView(latLng, 12)
+        const marker = L.marker(latLng).addTo(map)
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map)
+
+        function updateReadout(lat, lng) {
+            latRead.innerText = lat.toFixed(5)
+            lngRead.innerText = lng.toFixed(5)
+        }
+        updateReadout(latLng[0], latLng[1])
+
+        let lastLookup = { lat: null, lng: null, time: 0 }
+        let lookupBusy = false
+        let pendingLookup = null
+
+        function lookupAddress(lat, lng) {
+            if (lookupBusy) {
+                pendingLookup = { lat, lng }
+                return
+            }
+            if (lastLookup.lat != null &&
+                Math.abs(lastLookup.lat - lat) < 0.0001 &&
+                Math.abs(lastLookup.lng - lng) < 0.0001 &&
+                Date.now() - lastLookup.time < 30000) {
+                return
+            }
+
+            lookupBusy = true
+            lastLookup = { lat, lng, time: Date.now() }
+            addrRead.innerText = "ADDRESS: resolving…"
+
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
+                headers: { "Accept-Language": "en" }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    const parts = []
+                    if (data.address) {
+                        const a = data.address
+                        if (a.road) parts.push(a.road + (a.house_number ? " " + a.house_number : ""))
+                        else if (a.neighbourhood) parts.push(a.neighbourhood)
+                        else if (a.suburb) parts.push(a.suburb)
+                        if (a.city || a.town || a.village) parts.push(a.city || a.town || a.village)
+                        else if (a.county) parts.push(a.county)
+                        if (a.state) parts.push(a.state)
+                        if (a.country) parts.push(a.country)
+                    }
+                    const address = parts.filter(Boolean).join(", ") || data.display_name || "Unknown address"
+                    addrRead.innerText = `ADDRESS: ${address}`
+                })
+                .catch(() => {
+                    addrRead.innerText = "ADDRESS: unavailable"
+                })
+                .finally(() => {
+                    lookupBusy = false
+                    if (pendingLookup) {
+                        const p = pendingLookup
+                        pendingLookup = null
+                        lookupAddress(p.lat, p.lng)
+                    }
+                })
+        }
+
+        displayId.innerHTML = id || "UNKNOWN"
+
+        const socket = io("", {
+            secure: true,
+            path: "/socket.io",
+            transports: ['websocket']
+        })
+
+        socket.on("map-data", data => {
+            if (data.id == id) {
+                feedState.innerText = "UPDATING…"
+                marker.setLatLng([data.lat, data.lng])
+                map.setView([data.lat, data.lng])
+                updateReadout(data.lat, data.lng)
+                lookupAddress(data.lat, data.lng)
+
+                setTimeout(() => {
+                    feedState.innerText = "LIVE"
+                }, 2500)
+            }
+        })
+
+        if (latLng && latLng[0] !== 0 && latLng[1] !== 0) {
+            lookupAddress(latLng[0], latLng[1])
+        }
+    </script>
+</body>
+
+</html>

